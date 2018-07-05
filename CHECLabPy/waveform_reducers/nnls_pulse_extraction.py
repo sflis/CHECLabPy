@@ -69,7 +69,8 @@ class NNLSPulseExtraction(WaveformReducer):
             
             #only care about non zero pulses
             m = pcharge>0
-            pcharge,ptime =self._merge_pulses(pcharge[m],self.basis_t[m])
+            pcharge,ptime = pcharge[m],self.basis_t[m]
+            # pcharge,ptime =self._merge_pulses(pcharge[m],self.basis_t[m])
             
             #A rough time estimate
             if(len(ptime)>0):
