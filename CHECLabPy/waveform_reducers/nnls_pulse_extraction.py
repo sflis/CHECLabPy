@@ -39,9 +39,11 @@ class NNLSPulseExtraction(WaveformReducer):
         self.tolerance = -14.5
     @staticmethod
     def load_reference_pulse(path):
-        # file = np.loadtxt(path, delimiter=' ')
+        
         import pickle
-        x,y =pickle.load(open('myrefpuls.pkl','rb'))
+        # x,y =pickle.load(open('myrefpuls.pkl','rb'))
+        file = np.loadtxt(path, delimiter=' ')
+        x,y = file[:, 0],file[:, 1]
         # Making sure the start of the pulse template 
         # somewhat smoothly begins at 0
         k = y[4]/x[4]
@@ -54,9 +56,7 @@ class NNLSPulseExtraction(WaveformReducer):
         k = -y[-n]/x[n]
         m = y[-n]-k*x[-n]
         for i in range(1,n+1):
-            print(y[-i])
             y[-i] = k*x[-i]+m
-            print(y[-i],x[-i])
         pulse_template = scipy.interpolate.InterpolatedUnivariateSpline(x,y,ext=1)
         norm = scipy.integrate.quad(pulse_template,0,36*1e-9)
         return pulse_template,norm
