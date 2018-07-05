@@ -113,6 +113,7 @@ class NNLSPulseExtraction(WaveformReducer):
         charge   = np.zeros(len(self.extracted))
         tcharge  = np.zeros(len(self.extracted))
         tmcharge = np.zeros(len(self.extracted))
+        tccharge = np.zeros(len(self.extracted))
         norm     = np.zeros(len(self.extracted))
         npulses  = np.zeros(len(self.extracted))
         self.pulses = dict()
@@ -122,10 +123,15 @@ class NNLSPulseExtraction(WaveformReducer):
             tm = (np.abs(c[0]-av_ptime)<=5e-9) & m 
             charge[i] = np.sum(c[1][m])
             tcharge[i] = np.sum(c[1][tm])
+            
             if(tcharge[i]>0):
                 tmcharge[i] = np.max(c[1][tm])
 
+            if(len(c[1][~tm])!=0):
+                tccharge[i] = c[1][~tm]
+
             npulses[i] = len(c[1][m])
+            
             if(self.save_pulses and npulses[i]>0):
                 self.pulses[i] = np.array(list(zip(c[0][m],c[1][m])))
 
@@ -137,6 +143,7 @@ class NNLSPulseExtraction(WaveformReducer):
             charge   = charge,
             tcharge  = tcharge,
             tmcharge = tmcharge,
+            tccharge = tccharge,
             norm     = norm,
             npulses  = npulses,
             errata   = er
