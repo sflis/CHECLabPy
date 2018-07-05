@@ -77,7 +77,7 @@ class ReadWrite():
             yield copy.deepcopy(ret_dict)
         yield None
     def write(self,data):
-        pickle.dump({'iev':data['params']['iev'],'pulses':data['pulses'],'waveforms':data['waveforms']},self.pulses_file,
+        pickle.dump({'iev':data['params']['iev'],'pulses':data['pulses']},self.pulses_file,
                    protocol=4)
         df_ev = pd.DataFrame(dict(
             **data['params']
@@ -129,7 +129,7 @@ def process_waveforms(data):
     params=params_nnls
     params.update(params_ccr)
     params.update(data['params'])
-    data = {'params':params,'pulses':reducer_nnls.pulses,'waveforms':reducer_nnls.wf}
+    data = {'params':params,'pulses':reducer_nnls.pulses}#,'waveforms':reducer_nnls.wf}
     return data
 
 def worker(in_queue,out_queue,func,id,timout=1.0):
