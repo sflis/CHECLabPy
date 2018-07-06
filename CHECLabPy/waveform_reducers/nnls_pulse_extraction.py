@@ -128,7 +128,7 @@ class NNLSPulseExtraction(WaveformReducer):
                 tmcharge[i] = np.max(c[1][tm])
 
             if(len(c[1][~tm])!=0):
-                tccharge[i] = c[1][~tm]
+                tccharge[i] = np.sum(c[1][~tm])
 
             npulses[i] = len(c[1][m])
             
