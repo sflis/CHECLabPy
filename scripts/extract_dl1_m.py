@@ -197,6 +197,7 @@ def generator(n_workers,func,work_producer,work_consumer):
 
 
 def main():
+    
     description = ('Reduce a *_r1.tio file into a *_dl1.hdf5 file containing '
                    'various parameters extracted from the waveforms')
     parser = argparse.ArgumentParser(description=description,
@@ -224,6 +225,7 @@ def main():
     parser.add_argument('-j', '--thread_number', dest='th_number',type=int, default=1,
                         help="Number of worker threads")
 
+    
     args = parser.parse_args()
     if args.configuration:
         config = json.loads(args.configuration)
@@ -246,6 +248,11 @@ def main():
     output_path = args.output_path
     if not output_path:
         output_path = input_path.rsplit('_r1', 1)[0] + "_dl1.h5"
+
+    if(args.th_number>1):
+        import os
+        os.environ['MKL_NUM_THREADS'] = '1'
+
 
     rw = ReadWrite(input_path,output_path, args.max_events,**kwargs)
     generator(args.th_number,process_waveforms,rw.read(),rw.write)
