@@ -36,7 +36,8 @@ class NNLSPulseExtraction(WaveformReducer):
         #This number makes the charge scale similarly to Cross-correlation
         self.charge_scale = 7
         #The tolerance sets a constraint on how small pulses can be extracted
-        self.tolerance = -14.5
+        self.tolerance = -6.5
+   
     @staticmethod
     def load_reference_pulse(path):
         
@@ -74,11 +75,12 @@ class NNLSPulseExtraction(WaveformReducer):
             
             #A rough time estimate
             if(len(ptime)>0):
-                evt = np.average(ptime,weights=pcharge)
+                evt  = np.average(ptime,weights=pcharge)
+                totc = np.sum(pcharge)
             else:
-                evt = 0
-
-            px_c.append((ptime,pcharge,evt))  
+                evt = float('nan')
+                totc = float('nan')
+            px_c.append((ptime,pcharge,evt,totc))  
         
         return np.array(px_c)
     
@@ -103,9 +105,11 @@ class NNLSPulseExtraction(WaveformReducer):
 
     def _set_t_event(self, waveforms):
         self.extracted = self._pulse_extraction(waveforms)
-        self.kwargs['t_event'] = int(np.mean(self.extracted[:,2]*1e9))
-        self.kwargs["window_size"] = 20
-        self.kwargs["window_shift"] = -25
+        self.kwargs['t_event'] = int(np.nanmean(self.extracted[:,2]*1e9))
+        # self.kwargs["window_size"] = 10
+        # self.kwargs["window_shift"] = -25
+        if(self.kwargs['t_event']<7):
+            self.kwargs['t_event'] =  7
         super(NNLSPulseExtraction,self)._set_t_event(waveforms)
     
     @jit()
@@ -117,10 +121,13 @@ class NNLSPulseExtraction(WaveformReducer):
         norm     = np.zeros(len(self.extracted))
         npulses  = np.zeros(len(self.extracted))
         self.pulses = dict()
-        av_ptime    = np.mean(self.extracted[:,2])
+        pixt = np.array(self.extracted[:,2],dtype=np.float64)
+        pixc = np.array(self.extracted[:,3],dtype=np.float64)
+        m = np.isnan(pixt)
+        av_ptime = np.average(pixt[~m],weights=pixc[~m])
         for i,c in enumerate(self.extracted):
             m = c[1]>0
-            tm = (np.abs(c[0]-av_ptime)<=5e-9) & m 
+            tm = (np.abs(c[0]-av_ptime)<=5.1e-9) & m 
             charge[i] = np.sum(c[1][m])
             tcharge[i] = np.sum(c[1][tm])
             
