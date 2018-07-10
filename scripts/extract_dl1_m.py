@@ -252,6 +252,7 @@ def main():
     if(args.th_number>1):
         import os
         os.environ['MKL_NUM_THREADS'] = '1'
+        os.environ['NUMBA_NUM_THREADS'] = '1'
 
 
     rw = ReadWrite(input_path,output_path, args.max_events,**kwargs)

@@ -30,7 +30,7 @@ class NNLSPulseExtraction(WaveformReducer):
         t_end = x[np.max(np.where(y>0))]
         self.nbasis = int(127+t_end)*bases_bin
         self.basis_t = np.linspace(self.time_bins[0]-t_end, self.time_bins[-2], self.nbasis)
-        self.model_matrix = np.zeros((len(self.time_bins),self.nbasis))
+        self.model_matrix = np.zeros((len(self.time_bins),self.nbasis),dtype=np.float64)
         for i,t in enumerate(self.basis_t):
             self.model_matrix[:,i] = self.pulse_template((self.time_bins-t))
         #This number makes the charge scale similarly to Cross-correlation
@@ -157,7 +157,7 @@ class NNLSPulseExtraction(WaveformReducer):
         )
         return params
 
-@jit()
+@jit(nopython=True)
 def nnls(A,b,maxit=None,tolerance=0):
     """A mockup of the Lawson/Hanson active set algorithm
    
@@ -169,9 +169,7 @@ def nnls(A,b,maxit=None,tolerance=0):
     Stable URL: http://www.jstor.org/stable/2153286
     """
     
-    # let's have the proper shape
-    A = np.asarray(A)
-    b = np.asarray(b).reshape(b.size)
+    
     # step 0
     F = [] # passive (solved for) set
     G = list(range(A.shape[1])) # active (clamped to zero) set
@@ -191,7 +189,7 @@ def nnls(A,b,maxit=None,tolerance=0):
             # step 1
             if len(G) == 0:
                     break # the active set is the whole set, we're done
-            r_G = y[G].argmin()
+            r_G = y[np.array(G)].argmin()
             r = G[r_G]
             
             if y[r] >= tolerance:
@@ -201,24 +199,24 @@ def nnls(A,b,maxit=None,tolerance=0):
             feasible = False
             while not feasible:
                     # step 2
-                    x_F = np.linalg.lstsq(A[:,F],b,rcond=None)[0]
+                    x_F = np.linalg.lstsq(A[:,np.array(F)],b)[0]
                     lstsqs += 1
                     if (x_F >= 0).all():
-                            x[F] = x_F
+                            x[np.array(F)] = x_F
                             feasible = True
                     else:
                             # if the new trial solution gained a negative element
                             mask = (x_F <= 0)
-                            theta = x[F]/(x[F] - x_F)
+                            theta = x[np.array(F)]/(x[np.array(F)] - x_F)
                            
                             r_F = theta[mask].argmin()
                             alpha = theta[mask][r_F]
                             r = np.array(F)[mask][r_F]
-                            x[F] = x[F] + alpha*(x_F-x[F])
+                            x[np.array(F)] = x[np.array(F)] + alpha*(x_F-x[np.array(F)])
                             F.remove(r)
                             G.append(r); G.sort()
             # step 3
             y[:] = 0
-            y[G] = np.dot(A[:,G].transpose(),(np.dot(A[:,F],x[F])-b))
+            y[np.array(G)] = np.dot(A[:,np.array(G)].transpose(),(np.dot(A[:,np.array(F)],x[np.array(F)])-b))
 #        
     return x
