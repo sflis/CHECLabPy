@@ -15,20 +15,22 @@ class NNLSPulseExtraction(WaveformReducer):
     """
 
     def __init__(self, n_pixels, n_samples, plot=False,
-                 reference_pulse_path='',bases_bin=4,save_pulses=True, **kwargs):
+                 reference_pulse_path='',bases_bin=2,save_pulses=True, **kwargs):
         super().__init__(n_pixels, n_samples, plot, **kwargs)
 
         ref = self.load_reference_pulse(reference_pulse_path)
         self.pulse_template, self.norm = ref
         self.save_pulses = save_pulses
+        self.save_wf = False
         self.extracted = None
+
         self.time_bins=np.arange(128)*1e-9
-        
+
         #Setting up model matrix from pulse template
         x = np.linspace(0,120e-9,1000)
         y = self.pulse_template(x)
-        t_end = x[np.max(np.where(y>0))]
-        self.nbasis = int(127+t_end)*bases_bin
+        t_end = 15e-9#x[np.max(np.where(np.abs(y)>0))]
+        self.nbasis = int(127+t_end*1e9+0.5)*bases_bin
         self.basis_t = np.linspace(self.time_bins[0]-t_end, self.time_bins[-2], self.nbasis)
         self.model_matrix = np.zeros((len(self.time_bins),self.nbasis),dtype=np.float64)
         for i,t in enumerate(self.basis_t):
@@ -36,13 +38,13 @@ class NNLSPulseExtraction(WaveformReducer):
         #This number makes the charge scale similarly to Cross-correlation
         self.charge_scale = 7
         #The tolerance sets a constraint on how small pulses can be extracted
-        self.tolerance = -6.5
-   
+        self.tolerance = -9.5
+
     @staticmethod
     def load_reference_pulse(path):
         
         import pickle
-        # x,y =pickle.load(open('myrefpuls.pkl','rb'))
+        # x,y,pe = pickle.load(open('data/myrefpulse_1.96pe.pkl','rb'))
         file = np.loadtxt(path, delimiter=' ')
         x,y = file[:, 0],file[:, 1]
         # Making sure the start of the pulse template 
@@ -52,7 +54,7 @@ class NNLSPulseExtraction(WaveformReducer):
             y[i] = k*x[i]
 
         # Making sure the tail of the pulse template 
-        # somewhat smoothly goes to 0    
+        # is somewhat smoothly goes to 0    
         n = 10
         k = -y[-n]/x[n]
         m = y[-n]-k*x[-n]
@@ -108,29 +110,36 @@ class NNLSPulseExtraction(WaveformReducer):
         self.kwargs['t_event'] = int(np.nanmean(self.extracted[:,2]*1e9))
         # self.kwargs["window_size"] = 10
         # self.kwargs["window_shift"] = -25
+        #t_event can't be earlier sine the base reducer will
+        #index out of bounds when interpolating wf
         if(self.kwargs['t_event']<7):
             self.kwargs['t_event'] =  7
         super(NNLSPulseExtraction,self)._set_t_event(waveforms)
     
     @jit()
     def _get_charge(self, waveforms):
-        charge   = np.zeros(len(self.extracted))
-        tcharge  = np.zeros(len(self.extracted))
-        tmcharge = np.zeros(len(self.extracted))
-        tccharge = np.zeros(len(self.extracted))
-        norm     = np.zeros(len(self.extracted))
-        npulses  = np.zeros(len(self.extracted))
+        charge     = np.zeros(len(self.extracted))
+        tcharge    = np.zeros(len(self.extracted))
+        tselfc     = np.zeros(len(self.extracted))
+        tmcharge   = np.zeros(len(self.extracted))
+        tccharge   = np.zeros(len(self.extracted))
+        norm       = np.zeros(len(self.extracted))
+        npulses    = np.zeros(len(self.extracted))
+        pulse_time = np.zeros(len(self.extracted))
         self.pulses = dict()
+        self.wf = dict()
         pixt = np.array(self.extracted[:,2],dtype=np.float64)
         pixc = np.array(self.extracted[:,3],dtype=np.float64)
         m = np.isnan(pixt)
         av_ptime = np.average(pixt[~m],weights=pixc[~m])
+
         for i,c in enumerate(self.extracted):
             m = c[1]>0
-            tm = (np.abs(c[0]-av_ptime)<=5.1e-9) & m 
+            tsm = (np.abs(c[0]-av_ptime)<=5.1e-9) & m 
+            tm = (c[0]>30e-9) & (c[0]<40e-9) & m
             charge[i] = np.sum(c[1][m])
             tcharge[i] = np.sum(c[1][tm])
-            
+            tselfc[i] = np.sum(c[1][tsm])
             if(tcharge[i]>0):
                 tmcharge[i] = np.max(c[1][tm])
 
@@ -141,19 +150,22 @@ class NNLSPulseExtraction(WaveformReducer):
             
             if(self.save_pulses and npulses[i]>0):
                 self.pulses[i] = np.array(list(zip(c[0][m],c[1][m])))
-
+            if(self.save_wf):
+                self.wf[i] = waveforms[i]
         er = np.ones(len(charge), dtype=bool)
         er[:] =False
         # if(len(self.errata.keys())>0):
             # er[list(self.errata.keys())] =True
         params = dict(
-            charge   = charge,
-            tcharge  = tcharge,
-            tmcharge = tmcharge,
-            tccharge = tccharge,
-            norm     = norm,
-            npulses  = npulses,
-            errata   = er
+            charge     = charge,
+            tcharge    = tcharge,
+            tmcharge   = tmcharge,
+            tccharge   = tccharge,
+            tselfc     = tselfc,
+            norm       = norm,
+            npulses    = npulses,
+            pulse_time = pixt,
+            errata     = er
         )
         return params
 

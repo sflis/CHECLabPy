@@ -45,8 +45,8 @@ class ReadWrite():
         self.start_time = 0
         self.writer = DL1Writer(output_path+'.h5', self.n_events*self.n_pixels, None)
         self.pulses_file = open(output_path+'.pkl','wb')
-    def read(self):
-        
+
+    def read(self):        
         desc = "Processing events"
         ret_dict={'reducer_nnls':self.reducer_nnls,'reducer_ccr':self.reducer_ccr}
         for waveforms in tqdm(self.reader, total=self.n_events, desc=desc):
@@ -76,14 +76,20 @@ class ReadWrite():
             
             yield copy.deepcopy(ret_dict)
         yield None
+
     def write(self,data):
-        pickle.dump({'iev':data['params']['iev'],'pulses':data['pulses']},self.pulses_file,
+        pickle.dump({'iev':data['params']['iev'],
+                    'pulses':data['pulses'],
+                    'waveforms':data['waveforms']
+                    },self.pulses_file,
                    protocol=4)
+
         df_ev = pd.DataFrame(dict(
             **data['params']
         ))
             
         self.writer.append_event(df_ev)
+    
     def finish(self):
         sn_dict = {}
         for tm in range(self.n_modules):
@@ -129,7 +135,7 @@ def process_waveforms(data):
     params=params_nnls
     params.update(params_ccr)
     params.update(data['params'])
-    data = {'params':params,'pulses':reducer_nnls.pulses}#,'waveforms':reducer_nnls.wf}
+    data = {'params':params,'pulses':reducer_nnls.pulses,'waveforms':reducer_nnls.wf}
     return data
 
 def worker(in_queue,out_queue,func,id,timout=1.0):
@@ -234,9 +240,6 @@ def main():
         config = {}
         config_string = ""
 
-    
-    # if 'reference_pulse_path' not in config:
-        # config['reference_pulse_path'] = reader.reference_pulse_path
 
     kwargs = dict(
         # n_pixels=n_pixels,
