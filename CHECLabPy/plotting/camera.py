@@ -4,8 +4,10 @@ Plot camera image using just TargetCalib and python
 import numpy as np
 from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
+from matplotlib.colors import LogNorm
 from CHECLabPy.plotting.setup import Plotter
 from CHECLabPy.utils.mapping import get_clp_mapping_from_tc_mapping
+from copy import copy
 
 
 class CameraPlotter(Plotter):
@@ -118,6 +120,11 @@ class CameraImage(Plotter):
         self.ax.autoscale_view()
         self.ax.axis('off')
 
+        self.pixel_highlighting = copy(self.pixels)
+        self.pixel_highlighting.set_facecolor('none')
+        self.pixel_highlighting.set_linewidth(0)
+        self.ax.add_collection(self.pixel_highlighting)
+
     @staticmethod
     def figsize(scale=1.5):
         super(CameraPlotter, CameraPlotter).figsize(scale)
@@ -130,7 +137,9 @@ class CameraImage(Plotter):
     def image(self, val):
         assert val.size == self.n_pixels
 
-        self.pixels.set_array(val)
+        self._image = val
+
+        self.pixels.set_array(np.ma.masked_invalid(val))
         self.pixels.changed()
         if self.autoscale:
             self.pixels.autoscale() # Updates the colorbar
@@ -145,6 +154,14 @@ class CameraImage(Plotter):
         """
         self.pixels.set_clim(zmin, zmax)
         self.autoscale = False
+
+    def set_log(self):
+        """
+        Set the color scale to be logarithmic
+        """
+        self.pixels.norm = LogNorm()
+        self.pixels.autoscale()
+        self.colorbar.update_bruteforce(self.pixels)
 
     def reset_limits(self):
         """
@@ -170,7 +187,7 @@ class CameraImage(Plotter):
         else:
             print("Cannot annotate, no mapping attached to class")
 
-    def add_text_to_pixel(self, pixel, value, fmt=None, size=3):
+    def add_text_to_pixel(self, pixel, value, fmt=None, size=3, color='w'):
         """
         Add a text label to a single pixel
 
@@ -188,9 +205,9 @@ class CameraImage(Plotter):
         if fmt:
             val = fmt.format(value)
         self.ax.text(pos_x, pos_y, value, fontsize=size,
-                     color='w', ha='center')
+                     color=color, ha='center')
 
-    def add_pixel_text(self, values, fmt=None, size=3):
+    def add_pixel_text(self, values, fmt=None, size=3, color='w'):
         """
         Add a text label to each pixel
 
@@ -204,7 +221,32 @@ class CameraImage(Plotter):
         """
         assert values.size == self.n_pixels
         for pixel in range(self.n_pixels):
-            self.add_text_to_pixel(pixel, values[pixel], fmt, size)
+            self.add_text_to_pixel(pixel, values[pixel], fmt, size, color)
+
+    def highlight_pixels(self, pixels, color='g', linewidth=0.5, alpha=0.75):
+        """
+        Highlight the given pixels with a colored line around them
+
+        Parameters
+        ----------
+        pixels : index-like
+            The pixels to highlight.
+            Can either be a list or array of integers or a
+            boolean mask of length number of pixels
+        color: a matplotlib conform color
+            the color for the pixel highlighting
+        linewidth: float
+            linewidth of the highlighting in points
+        alpha: 0 <= alpha <= 1
+            The transparency
+        """
+
+        l = np.zeros_like(self.image)
+        l[pixels] = linewidth
+        self.pixel_highlighting.set_linewidth(l)
+        self.pixel_highlighting.set_alpha(alpha)
+        self.pixel_highlighting.set_edgecolor(color)
+        # self._update()
 
     def annotate_tm_edge_label(self):
         """
@@ -417,7 +459,7 @@ class CameraImageImshow(Plotter):
         else:
             print("Cannot annotate, no mapping attached to class")
 
-    def add_text_to_pixel(self, pixel, value, fmt=None, size=3):
+    def add_text_to_pixel(self, pixel, value, fmt=None, size=3,color='w'):
         """
         Add a text label to a single pixel
 
@@ -435,9 +477,9 @@ class CameraImageImshow(Plotter):
         if fmt:
             val = fmt.format(value)
         self.ax.text(pos_x, pos_y, value, fontsize=size,
-                     color='w', ha='center')
+                     color=color, ha='center')
 
-    def add_pixel_text(self, values, fmt=None, size=3):
+    def add_pixel_text(self, values, fmt=None, size=3,color='w'):
         """
         Add a text label to each pixel
 
@@ -451,7 +493,7 @@ class CameraImageImshow(Plotter):
         """
         assert values.size == self.n_pixels
         for pixel in range(self.n_pixels):
-            self.add_text_to_pixel(pixel, values[pixel], fmt, size)
+            self.add_text_to_pixel(pixel, values[pixel], fmt, size, color)
 
     def annotate_tm_edge_label(self):
         """
