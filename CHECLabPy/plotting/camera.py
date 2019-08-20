@@ -38,6 +38,7 @@ class CameraImage(Plotter):
         self.colorbar = None
         self.autoscale = True
 
+        self.pixel_highlighting = None
         self.xpix = xpix
         self.ypix = ypix
 
@@ -110,7 +111,7 @@ class CameraImage(Plotter):
 
     def set_cmap(self,cmap="viridis"):
         self.pixels.set_cmap(cmap)
-                
+
     def add_colorbar(self, label='', pad=-0.2, ax=None,**kwargs):
         if ax is None:
             ax = self.ax
@@ -216,7 +217,9 @@ class CameraImage(Plotter):
         pixel_highlighting.set_linewidth(lw_array)
         pixel_highlighting.set_alpha(alpha)
         pixel_highlighting.set_edgecolor(color)
-        self.ax.add_collection(pixel_highlighting)
+        if self.pixel_highlighting is not None:
+            self.pixel_highlighting.remove()
+        self.pixel_highlighting = self.ax.add_collection(pixel_highlighting)
         return pixel_highlighting
 
     def annotate_tm_edge_label(self):
@@ -397,7 +400,7 @@ class CameraImageImshow(Plotter):
 
     def add_colorbar(self, label=''):
         self.colorbar = self.fig.colorbar(self.camera, label=label)
-        
+
     def set_limits_minmax(self, zmin, zmax):
         """
         Set the color scale limits from min to max
